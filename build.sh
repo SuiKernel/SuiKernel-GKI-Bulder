@@ -94,7 +94,11 @@ if ksu_included; then
   "Suki") install_ksu SukiSU-Ultra/SukiSU-Ultra $(if susfs_included; then echo "susfs-main"; elif ksu_manual_hook; then echo "nongki"; else echo "main"; fi) ;;
   esac
   config --enable CONFIG_KSU
-  config --disable CONFIG_KSU_MANUAL_SU
+
+  # Only disable CONFIG_KSU_MANUAL_SU for SukiSU builds
+  if [[ $KSU == "Suki" ]]; then
+    config --disable CONFIG_KSU_MANUAL_SU
+  fi
 fi
 
 # SUSFS
@@ -133,16 +137,25 @@ if [[ $KSU == "Suki" ]]; then
   config --enable CONFIG_KPM
 fi
 
-# set localversion
-if [[ $TODO == "kernel" ]]; then
-  LATEST_COMMIT_HASH=$(git rev-parse --short HEAD)
-  if [[ $STATUS == "BETA" ]]; then
-    SUFFIX=$LATEST_COMMIT_HASH
-  else
-    SUFFIX="release@${LATEST_COMMIT_HASH}"
-  fi
-  config --set-str CONFIG_LOCALVERSION "-$KERNEL_NAME/$SUFFIX"
+# ---
+# ✅ NEW BRANDING SECTION
+# ---
+log "🧹 Finalizing build configuration with branding..."
+# Construct the brand name. The kernel will automatically add the base version (e.g., 5.10.243)
+# So, BRAND="-SuiKernel-HSKY4-KSUN+SuSFS" results in "5.10.243-SuiKernel-HSKY4-KSUN+SuSFS"
+BRAND="-SuiKernel-${KERNEL_NAME}-${VARIANT}"
+
+# Apply branding-specific modifications from your snippet
+if [ -f "./common/build.config.gki" ]; then
+    log "Patching build.config.gki for branding..."
+    sed -i 's/check_defconfig//' ./common/build.config.gki
 fi
+
+# Set the kernel's local version and disable auto-generation
+config --set-str CONFIG_LOCALVERSION "$BRAND"
+config --disable CONFIG_LOCALVERSION_AUTO
+log "✅ Build configuration completed. LOCALVERSION set to: $BRAND"
+
 
 # Declare needed variables
 export KBUILD_BUILD_USER="$USER"
@@ -235,12 +248,12 @@ if [[ $STATUS == "BETA" ]]; then
   BUILD_DATE=$(date -d "$KBUILD_BUILD_TIMESTAMP" +"%Y%m%d-%H%M")
   ZIP_NAME=${ZIP_NAME//BUILD_DATE/$BUILD_DATE}
   sed -i \
-    "s/kernel.string=.*/kernel.string=${KERNEL_NAME} ${LINUX_VERSION} (${BUILD_DATE}) ${VARIANT}/g" \
+    "s/kernel.string=.*/kernel.string=SuiKernel ${LINUX_VERSION} ${KERNEL_NAME} (${BUILD_DATE}) ${VARIANT}/g" \
     $workdir/anykernel/anykernel.sh
 else
   ZIP_NAME=${ZIP_NAME//-BUILD_DATE/}
   sed -i \
-    "s/kernel.string=.*/kernel.string=${KERNEL_NAME} ${LINUX_VERSION} ${VARIANT}/g" \
+    "s/kernel.string=.*/kernel.string=SuiKernel ${LINUX_VERSION} ${KERNEL_NAME} ${VARIANT}/g" \
     $workdir/anykernel/anykernel.sh
 fi
 
