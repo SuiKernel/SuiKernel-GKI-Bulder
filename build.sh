@@ -124,7 +124,7 @@ if ksu_manual_hook; then
     patch -p1 < $workdir/kernel-patches/sukisu_scope_min_manual_hooks_v1.5.patch
   else
     log "Applying manual hook patch for KernelSU"
-    patch -p1 < $workdir/kernel-patches/kernelsu_min_scope_syscall_hooks_v1.5
+    patch -p1 < $workdir/kernel-patches/kernelsu_min_scope_syscall_hooks_v1.5.patch
   fi
 
   config --enable CONFIG_KSU_MANUAL_HOOK
