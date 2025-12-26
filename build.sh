@@ -23,13 +23,9 @@ LINUX_VERSION=$(make kernelversion)
 DEFCONFIG_FILE=$(find ./arch/arm64/configs -name "$KERNEL_DEFCONFIG")
 cd $workdir
 
-# Set KernelSU Variant
+# Set KernelSU Variant (Forced KSUN+SuSFS)
 log "Setting KernelSU variant..."
-case "$KSU" in
-  "Suki") VARIANT="SUKISU" ;;
-  "None") VARIANT="NKSU" ;;
-esac
-[[ $KSU_SUSFS == "true" ]] && VARIANT+="+SuSFS"
+VARIANT="KSUN+SuSFS"
 
 # Replace Placeholder in zip name
 ZIP_NAME=${ZIP_NAME//KVER/$LINUX_VERSION}
@@ -73,78 +69,48 @@ fi
 cd $KSRC
 
 ## KernelSU setup
-if ksu_included; then
-  # Remove existing KernelSU drivers
-  for KSU_PATH in drivers/staging/kernelsu drivers/kernelsu KernelSU; do
-    if [[ -d $KSU_PATH ]]; then
-      log "KernelSU driver found in $KSU_PATH, Removing..."
-      KSU_DIR=$(dirname "$KSU_PATH")
+# Remove existing KernelSU drivers
+for KSU_PATH in drivers/staging/kernelsu drivers/kernelsu KernelSU; do
+  if [[ -d $KSU_PATH ]]; then
+    log "KernelSU driver found in $KSU_PATH, Removing..."
+    KSU_DIR=$(dirname "$KSU_PATH")
 
-      [[ -f "$KSU_DIR/Kconfig" ]] && sed -i '/kernelsu/d' $KSU_DIR/Kconfig
-      [[ -f "$KSU_DIR/Makefile" ]] && sed -i '/kernelsu/d' $KSU_DIR/Makefile
+    [[ -f "$KSU_DIR/Kconfig" ]] && sed -i '/kernelsu/d' $KSU_DIR/Kconfig
+    [[ -f "$KSU_DIR/Makefile" ]] && sed -i '/kernelsu/d' $KSU_DIR/Makefile
 
-      rm -rf $KSU_PATH
-    fi
-  done
-
-  # Install kernelsu
-  case "$KSU" in
-  "Suki") install_ksu SukiSU-Ultra/SukiSU-Ultra $(if susfs_included; then echo "susfs-main"; elif ksu_manual_hook; then echo "nongki"; else echo "main"; fi) ;;
-  esac
-  config --enable CONFIG_KSU
-  config --disable CONFIG_KSU_MANUAL_SU
-fi
-
-# SUSFS
-if susfs_included; then
-  # Kernel-side
-  log "Applying kernel-side susfs patches"
-  git clone --depth=1 -q -b gki-android12-5.10 https://gitlab.com/simonpunk/susfs4ksu $workdir/susfs
-  SUSFS_PATCHES=$workdir/susfs/kernel_patches
-  cp -R $SUSFS_PATCHES/fs/* ./fs
-  cp -R $SUSFS_PATCHES/include/* ./include
-  patch -p1 < $SUSFS_PATCHES/50_add_susfs_in_gki-android12-5.10.patch
-  SUSFS_VERSION=$(grep -E '^#define SUSFS_VERSION' ./include/linux/susfs.h | cut -d' ' -f3 | sed 's/"//g')
-  config --enable CONFIG_KSU_SUSFS
-else
-  config --disable CONFIG_KSU_SUSFS
-fi
-
-# KSU Manual Hooks
-if ksu_manual_hook; then
-  # Apply manual hook patch for SukiSU
-  if [[ $KSU == "Suki" ]]; then
-    log "Applying manual hook patch for SukiSU"
-    patch -p1 < $workdir/kernel-patches/sukisu_scope_min_manual_hooks_v1.5.patch
+    rm -rf $KSU_PATH
   fi
-fi
+done
 
-# Enable KPM Supports for SukiSU
-if [[ $KSU == "Suki" ]]; then
-  config --enable CONFIG_KPM
-fi
+# Install kernelsu (Next + SuSFS forced)
+install_ksu pershoot/KernelSU-Next "next-susfs"
+config --enable CONFIG_KSU
+config --disable CONFIG_KSU_MANUAL_SU
+
+# SUSFS (Always Applied)
+log "Applying kernel-side susfs patches"
+git clone --depth=1 -q -b gki-android12-5.10 https://gitlab.com/simonpunk/susfs4ksu $workdir/susfs
+SUSFS_PATCHES=$workdir/susfs/kernel_patches
+cp -R $SUSFS_PATCHES/fs/* ./fs
+cp -R $SUSFS_PATCHES/include/* ./include
+patch -p1 < $SUSFS_PATCHES/50_add_susfs_in_gki-android12-5.10.patch
+SUSFS_VERSION=$(grep -E '^#define SUSFS_VERSION' ./include/linux/susfs.h | cut -d' ' -f3 | sed 's/"//g')
+config --enable CONFIG_KSU_SUSFS
 
 # ---
 # ✅ NEW BRANDING SECTION
 # ---
 log "🧹 Finalizing build configuration with branding..."
 
-# Determine the release tag. Priority:
-# 1. Version passed from the release workflow (WORKFLOW_HSKY_VERSION).
-# 2. Fallback for manual or beta builds, using the branch name or "LOCAL".
-if [[ -n "$WORKFLOW_HSKY_VERSION" ]]; then
-  RELEASE_TAG="$WORKFLOW_HSKY_VERSION"
-else
-  RELEASE_TAG="${GITHUB_REF_NAME:-LOCAL}"
-fi
+# Get the GitHub Release Tag, using HSKY4 as a fallback for local builds
+RELEASE_TAG="${GITHUB_REF_NAME:-HSKY4}"
 
-# This defines the user-facing name for the zip file and installer string.
-# Format: SuiKernel-5.10.243-HSKY4-SUKISU+SuSFS
-export KERNEL_RELEASE_NAME="${KERNEL_NAME}-${LINUX_VERSION}-${RELEASE_TAG}-${VARIANT}"
-
-# This sets the string appended to the base kernel version for `uname -r`.
-# Format: 5.10.243-SuiKernel-HSKY4-SUKISU+SuSFS
+# This sets the string that is appended to the base kernel version for `uname -r`
 INTERNAL_BRAND="-${KERNEL_NAME}-${RELEASE_TAG}-${VARIANT}"
+
+# This defines the user-facing name for the zip file and installer string
+export KERNEL_RELEASE_NAME="${KERNEL_NAME}-${RELEASE_TAG}-${LINUX_VERSION}-${VARIANT}"
+
 
 # Apply branding-specific modifications from your snippet
 if [ -f "./common/build.config.gki" ]; then
@@ -173,8 +139,8 @@ text=$(
 *==== SuiKernel Builder ====*
 🐧 *Linux Version*: $LINUX_VERSION
 📅 *Build Date*: $KBUILD_BUILD_TIMESTAMP
-📛 *KernelSU*: ${KSU}$(ksu_included && echo " | $KSU_VERSION")
-ඞ *SuSFS*: $(susfs_included && echo "$SUSFS_VERSION" || echo "None")
+📛 *KernelSU*: ${KSU} | $KSU_VERSION
+ඞ *SuSFS*: $SUSFS_VERSION
 🔰 *Compiler*: $COMPILER_STRING
 😸 *Kakangkuh*: 100
 EOF
@@ -201,38 +167,6 @@ $KMI_CHECK "$KSRC/android/abi_gki_aarch64.xml" "$MODULE_SYMVERS"
 
 ## Post-compiling stuff
 cd $workdir
-
-# Patch the kernel Image for KPM Supports
-if [[ $KSU == "Suki" ]]; then
-  tempdir=$(mktemp -d) && cd $tempdir
-
-  # Setup patching tool
-  log "Fetching SukiSU patcher URL..."
-  LATEST_SUKISU_PATCH=""
-  for i in {1..5}; do
-      LATEST_SUKISU_PATCH=$(curl -s "https://api.github.com/repos/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest" | jq -r '.assets[] | select(.name | endswith("patch_linux")) | .browser_download_url' | head -n 1)
-      [[ -n "$LATEST_SUKISU_PATCH" ]] && break
-      log "Attempt $i/5 failed to get URL. Retrying in 3 seconds..."
-      sleep 3
-  done
-
-  if [[ -z "$LATEST_SUKISU_PATCH" ]]; then
-      error "Could not fetch SukiSU patcher URL after 5 attempts. Aborting."
-      exit 1
-  fi
-
-  log "Downloading SukiSU patcher..."
-  wget --tries=5 --timeout=30 -qO patch_linux "$LATEST_SUKISU_PATCH"
-  chmod a+x ./patch_linux
-
-  # Patch the kernel image
-  cp $KERNEL_IMAGE ./Image
-  sudo ./patch_linux
-  mv oImage Image
-  KERNEL_IMAGE=$(pwd)/Image
-
-  cd -
-fi
 
 # Clone AnyKernel
 log "Cloning anykernel from $(simplify_gh_url "$ANYKERNEL_REPO")"
@@ -276,13 +210,26 @@ if [[ $BUILD_BOOTIMG == "true" ]]; then
   generate_bootimg() {
     local kernel="$1"
     local output="$2"
+
+    # Create boot image
     log "Creating $output"
-    $MKBOOTIMG --header_version 4 --kernel "$kernel" --output "$output" --ramdisk out/ramdisk \
-      --os_version 12.0.0 --os_patch_level "2099-12"
+    $MKBOOTIMG --header_version 4 \
+      --kernel "$kernel" \
+      --output "$output" \
+      --ramdisk out/ramdisk \
+      --os_version 12.0.0 \
+      --os_patch_level "2099-12"
+
     sleep 0.5
+
+    # Sign the boot image
     log "Signing $output"
-    $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) \
-      --image "$output" --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
+    $AVBTOOL add_hash_footer \
+      --partition_name boot \
+      --partition_size $((64 * 1024 * 1024)) \
+      --image "$output" \
+      --algorithm SHA256_RSA2048 \
+      --key $BOOT_SIGN_KEY_PATH
   }
 
   tempdir=$(mktemp -d) && cd $tempdir
@@ -298,8 +245,10 @@ if [[ $BUILD_BOOTIMG == "true" ]]; then
   for format in raw lz4 gz; do
     kernel="./Image"
     [[ $format != "raw" ]] && kernel+=".$format"
+
     _output="${BOOTIMG_NAME/dummy1/$format}"
     generate_bootimg "$kernel" "$_output"
+
     mv "$_output" $workdir
   done
   cd $workdir
@@ -315,7 +264,7 @@ if [[ $LAST_BUILD == "true" && $STATUS != "BETA" ]]; then
   (
     echo "LINUX_VERSION=$LINUX_VERSION"
     echo "SUSFS_VERSION=$(curl -s https://gitlab.com/simonpunk/susfs4ksu/raw/gki-android12-5.10/kernel_patches/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g')"
-    echo "SUKISU_VERSION=$(gh api repos/SukiSU-Ultra/SukiSU-Ultra/tags --jq '.[0].name')"
+    echo "KSU_NEXT_VERSION=$(gh api repos/KernelSU-Next/KernelSU-Next/tags --jq '.[0].name')"
     echo "KERNEL_NAME=$KERNEL_NAME"
     echo "RELEASE_REPO=$(simplify_gh_url "$GKI_RELEASES_REPO")"
   ) >> $workdir/artifacts/info.txt

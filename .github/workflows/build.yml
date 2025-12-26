@@ -12,16 +12,10 @@ on:
         type: string
       KSU_SUSFS:
         type: string
-      KSU_MANUAL_HOOK:
-        type: string
       BUILD_BOOTIMG:
         type: string
       LAST_BUILD:
         type: string
-      HSKY_VERSION: # New input for release versioning
-        type: string
-        required: false
-        default: ''
       STATUS:
         type: string
         default: 'BETA'
@@ -35,42 +29,33 @@ on:
         options:
           - "self-hosted"
           - "ubuntu-latest"
+
       TODO:
         description: To do
-        default: "kernel"
+        default: ""
         type: choice
         options:
           - "kernel"
           - "defconfig"
+
       KSU:
         description: KernelSU variant
-        default: "Suki"
+        default: "Next"
         type: choice
         options:
-          - "None"
-          - "Suki"
+          - "Next"
+
       KSU_SUSFS:
         description: Include SUSFS?
-        default: "false"
+        default: "true"
         type: choice
         options:
           - "true"
-          - "false"
-      KSU_MANUAL_HOOK:
-        description: Use KSU Manual Hooks?
-        default: "false"
-        type: choice
-        options:
-          - "true"
-          - "false"
-      HSKY_VERSION:
-        description: "(Optional) Specify HSKY version (e.g., HSKY4)"
-        required: false
-        default: ''
 
 jobs:
   build:
     runs-on: ${{ inputs.RUNNER_TYPE }}
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -82,18 +67,27 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          KSU: ${{ inputs.KSU }}
-          KSU_SUSFS: ${{ inputs.KSU_SUSFS }}
-          KSU_MANUAL_HOOK: ${{ inputs.KSU_MANUAL_HOOK }}
         run: |
-          _error() { echo "❌ ERROR: $*"; let ret++; }
+          _error() {
+              echo "❌ ERROR: $*"
+              let ret++
+          }
+
           ret=0
-          [[ -z "$TG_CHAT_ID" ]] && _error "Missing TG_CHAT_ID secret"
-          [[ -z "$TG_BOT_TOKEN" ]] && _error "Missing TG_BOT_TOKEN secret"
-          [[ -z "$GH_TOKEN" ]] && _error "Missing GH_TOKEN secret"
-          [[ $KSU == "None" && $KSU_SUSFS == "true" ]] && _error "Cannot use SuSFS without KernelSU"
-          [[ $KSU == "None" && $KSU_MANUAL_HOOK == "true" ]] && _error "Cannot use KSU Manual Hooks without KernelSU!"
-          [[ $ret -gt 0 ]] && exit $ret
+          # Check Secrets
+          if [[ -z "$TG_CHAT_ID" ]]; then
+            _error "Missing TG_CHAT_ID secret (Telegram Chat ID)"
+          fi
+          if [[ -z "$TG_BOT_TOKEN" ]]; then
+            _error "Missing TG_BOT_TOKEN secret (Telegram Bot Token)"
+          fi
+          if [[ -z "$GH_TOKEN" ]]; then
+            _error "Missing GH_TOKEN secret (GitHub PAT)"
+          fi
+
+          if [[ $ret -gt 0 ]]; then
+            exit $ret
+          fi
 
       - name: Install Dependencies
         run: |
@@ -111,12 +105,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           KSU: ${{ inputs.KSU }}
           KSU_SUSFS: ${{ inputs.KSU_SUSFS }}
-          KSU_MANUAL_HOOK: ${{ inputs.KSU_MANUAL_HOOK }}
           BUILD_BOOTIMG: ${{ inputs.BUILD_BOOTIMG }}
           LAST_BUILD: ${{ inputs.LAST_BUILD }}
           TODO: ${{ inputs.TODO }}
           STATUS: ${{ inputs.STATUS }}
-          WORKFLOW_HSKY_VERSION: ${{ inputs.HSKY_VERSION }} # Pass HSKY version to script
         run: |
           export GIT_CLONE_PROTECTION_ACTIVE=false
           chmod +x *.sh
