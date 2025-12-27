@@ -23,9 +23,9 @@ LINUX_VERSION=$(make kernelversion)
 DEFCONFIG_FILE=$(find ./arch/arm64/configs -name "$KERNEL_DEFCONFIG")
 cd $workdir
 
-# Set KernelSU Variant (Forced KSUN+SuSFS)
+# Set KernelSU Variant
 log "Setting KernelSU variant..."
-VARIANT="KSUN+SuSFS"
+VARIANT="KSUN"
 
 # Replace Placeholder in zip name
 ZIP_NAME=${ZIP_NAME//KVER/$LINUX_VERSION}
@@ -82,21 +82,11 @@ for KSU_PATH in drivers/staging/kernelsu drivers/kernelsu KernelSU; do
   fi
 done
 
-# Install kernelsu (Next + SuSFS forced)
-install_ksu pershoot/KernelSU-Next "next-susfs"
+# Install kernelsu (Next)
+install_ksu pershoot/KernelSU-Next "next"
 config --enable CONFIG_KSU
 config --disable CONFIG_KSU_MANUAL_SU
-
-# SUSFS (Always Applied)
-log "Applying kernel-side susfs patches"
-# UPDATED: Changed branch to specific tag 1.4.2-gki-android12-5.10
-git clone --depth=1 -q -b 1.4.2-gki-android12-5.10 https://gitlab.com/simonpunk/susfs4ksu $workdir/susfs
-SUSFS_PATCHES=$workdir/susfs/kernel_patches
-cp -R $SUSFS_PATCHES/fs/* ./fs
-cp -R $SUSFS_PATCHES/include/* ./include
-patch -p1 < $SUSFS_PATCHES/50_add_susfs_in_gki-android12-5.10.patch
-SUSFS_VERSION=$(grep -E '^#define SUSFS_VERSION' ./include/linux/susfs.h | cut -d' ' -f3 | sed 's/"//g')
-config --enable CONFIG_KSU_SUSFS
+config --disable CONFIG_KSU_SUSFS
 
 # ---
 # ✅ NEW BRANDING SECTION
@@ -141,7 +131,6 @@ text=$(
 🐧 *Linux Version*: $LINUX_VERSION
 📅 *Build Date*: $KBUILD_BUILD_TIMESTAMP
 📛 *KernelSU*: ${KSU} | $KSU_VERSION
-ඞ *SuSFS*: $SUSFS_VERSION
 🔰 *Compiler*: $COMPILER_STRING
 😸 *Kakangkuh*: 100
 EOF
@@ -264,8 +253,6 @@ fi
 if [[ $LAST_BUILD == "true" && $STATUS != "BETA" ]]; then
   (
     echo "LINUX_VERSION=$LINUX_VERSION"
-    # UPDATED: Changed URL to use raw/1.4.2-gki-android12-5.10 for version info
-    echo "SUSFS_VERSION=$(curl -s https://gitlab.com/simonpunk/susfs4ksu/raw/1.4.2-gki-android12-5.10/kernel_patches/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g')"
     echo "KSU_NEXT_VERSION=$(gh api repos/KernelSU-Next/KernelSU-Next/tags --jq '.[0].name')"
     echo "KERNEL_NAME=$KERNEL_NAME"
     echo "RELEASE_REPO=$(simplify_gh_url "$GKI_RELEASES_REPO")"

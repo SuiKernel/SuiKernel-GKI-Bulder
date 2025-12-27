@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         variant:
-          - { name: "KSUN+SuSFS", KSU: "Next", KSU_SUSFS: "true", LAST_BUILD: "true" }
+          - { name: "KSUN", KSU: "Next", LAST_BUILD: "true" }
     name: Build ${{ matrix.variant.name }} variant
     uses: ./.github/workflows/build.yml
     secrets: inherit
@@ -24,7 +24,6 @@ jobs:
       STATUS: "RELEASE"
       RUNNER_TYPE: ${{ inputs.RUNNER_TYPE }}
       KSU: ${{ matrix.variant.KSU }}
-      KSU_SUSFS: ${{ matrix.variant.KSU_SUSFS }}
       LAST_BUILD: ${{ matrix.variant.LAST_BUILD }}
       BUILD_BOOTIMG: "true"
       TODO: "kernel"
@@ -78,7 +77,6 @@ jobs:
             echo "KERNEL_NAME=SuiKernel" >> $GITHUB_ENV
             echo "LINUX_VERSION=5.10" >> $GITHUB_ENV
             echo "KSU_NEXT_VERSION=unknown" >> $GITHUB_ENV
-            echo "SUSFS_VERSION=unknown" >> $GITHUB_ENV
             echo "RELEASE_REPO=LoggingNewMemory/SuiKernel-Releases" >> $GITHUB_ENV
 
             echo "Using default values to continue release process"
@@ -138,7 +136,6 @@ jobs:
             ## 📢 ${{ env.RELEASE_TAG }} Builds
             -> Linux ${{ env.LINUX_VERSION }} (android12-5.10-lts)
             -> KSUNext ${{ env.KSU_NEXT_VERSION }}
-            -> SUSFS ඞ ${{ env.SUSFS_VERSION }}
             -> Kakangkuh: 100
 
             #### ✍️ Notes

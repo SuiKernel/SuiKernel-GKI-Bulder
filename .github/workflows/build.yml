@@ -10,8 +10,6 @@ on:
         type: string
       KSU:
         type: string
-      KSU_SUSFS:
-        type: string
       BUILD_BOOTIMG:
         type: string
       LAST_BUILD:
@@ -44,13 +42,6 @@ on:
         type: choice
         options:
           - "Next"
-
-      KSU_SUSFS:
-        description: Include SUSFS?
-        default: "true"
-        type: choice
-        options:
-          - "true"
 
 jobs:
   build:
@@ -104,7 +95,6 @@ jobs:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           KSU: ${{ inputs.KSU }}
-          KSU_SUSFS: ${{ inputs.KSU_SUSFS }}
           BUILD_BOOTIMG: ${{ inputs.BUILD_BOOTIMG }}
           LAST_BUILD: ${{ inputs.LAST_BUILD }}
           TODO: ${{ inputs.TODO }}
