@@ -23,7 +23,7 @@ LINUX_VERSION=$(make kernelversion)
 DEFCONFIG_FILE=$(find ./arch/arm64/configs -name "$KERNEL_DEFCONFIG")
 cd $workdir
 
-# Set KernelSU Variant
+# # Set KernelSU Variant
 log "Setting KernelSU variant..."
 VARIANT="KSUN"
 
@@ -83,7 +83,7 @@ for KSU_PATH in drivers/staging/kernelsu drivers/kernelsu KernelSU; do
 done
 
 # Install kernelsu (Next)
-install_ksu KernelSU-Next/KernelSU-Next "dev"
+install_ksu pershoot/KernelSU-Next "dev"
 config --enable CONFIG_KSU
 config --disable CONFIG_KSU_MANUAL_SU
 config --disable CONFIG_KSU_SUSFS
