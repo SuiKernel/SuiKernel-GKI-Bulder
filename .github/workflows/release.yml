@@ -25,7 +25,7 @@ jobs:
       RUNNER_TYPE: ${{ inputs.RUNNER_TYPE }}
       KSU: ${{ matrix.variant.KSU }}
       LAST_BUILD: ${{ matrix.variant.LAST_BUILD }}
-      BUILD_BOOTIMG: "true"
+      BUILD_BOOTIMG: "false"
       TODO: "kernel"
 
   release:
